@@ -11,6 +11,7 @@ import Basics.Extra exposing (..)
 import Random exposing (..)
 import Svg.Attributes exposing (..)
 import Svg exposing (..)
+import Time exposing (..)
 
 
 main : Program Never
@@ -28,6 +29,7 @@ type alias Model =
     , mouse : Point
     , keyboard : String
     , points : List Point
+    , velocities : List Point
     }
 
 
@@ -35,6 +37,7 @@ type alias Point =
     { x : Int, y : Int }
 
 
+elementColor : String
 elementColor =
     "#313131"
 
@@ -45,6 +48,7 @@ initialModel =
     , mouse = { x = 0, y = 0 }
     , keyboard = ""
     , points = []
+    , velocities = []
     }
 
 
@@ -53,22 +57,29 @@ init =
     ( initialModel, initialWindowSize )
 
 
-randomPoint : Model -> Cmd Msg
-randomPoint model =
-    Random.generate RandomPointMsg <| (Random.pair (Random.int 0 model.windowSize.width) (Random.int 0 model.windowSize.height))
-
-
-initialWindowSize : Cmd Msg
-initialWindowSize =
-    Task.perform never WindInitialMsg Window.size
-
-
 type Msg
     = KeyMsg Keyboard.KeyCode
     | MouseMsg Mouse.Position
     | WindMsg Window.Size
     | WindInitialMsg Window.Size
     | RandomPointMsg ( Int, Int )
+    | RandomVelocityMsg ( Int, Int )
+    | Tick Time
+
+
+subscriptions : Model -> Sub Msg
+subscriptions model =
+    Sub.batch
+        [ Mouse.moves MouseMsg
+        , Keyboard.presses KeyMsg
+        , Window.resizes WindMsg
+        , Time.every (80 * millisecond) Tick
+        ]
+
+
+numberOfPoints : Int
+numberOfPoints =
+    100
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -88,20 +99,49 @@ update msg model =
 
         RandomPointMsg ( a, b ) ->
             case List.length model.points of
-                500 ->
-                    ( { model | points = List.append model.points [ { x = a, y = b } ] }, Cmd.none )
+                100 ->
+                    ( { model | points = List.append model.points [ { x = a, y = b } ] }, randomVelocity model )
 
                 _ ->
                     ( { model | points = List.append model.points [ { x = a, y = b } ] }, randomPoint model )
 
+        RandomVelocityMsg ( a, b ) ->
+            case List.length model.velocities of
+                100 ->
+                    ( { model | velocities = List.append model.velocities [ { x = a, y = b } ] }, Cmd.none )
 
-subscriptions : Model -> Sub Msg
-subscriptions model =
-    Sub.batch
-        [ Mouse.moves MouseMsg
-        , Keyboard.presses KeyMsg
-        , Window.resizes WindMsg
-        ]
+                _ ->
+                    ( { model | velocities = List.append model.velocities [ { x = a, y = b } ] }, randomVelocity model )
+
+        Tick newTime ->
+            ( animatePoints model, Cmd.none )
+
+
+randomPoint : Model -> Cmd Msg
+randomPoint model =
+    Random.generate RandomPointMsg <| (Random.pair (Random.int 0 model.windowSize.width) (Random.int 0 model.windowSize.height))
+
+
+randomVelocity : Model -> Cmd Msg
+randomVelocity model =
+    Random.generate RandomVelocityMsg <| (Random.pair (Random.int -1 1) (Random.int -1 1))
+
+
+initialWindowSize : Cmd Msg
+initialWindowSize =
+    Task.perform never WindInitialMsg Window.size
+
+
+animatePoints : Model -> Model
+animatePoints model =
+    let
+        movePoint point velocity =
+            { point | x = point.x + velocity.x, y = point.y + velocity.y }
+
+        newPoints =
+            List.map2 movePoint model.points model.velocities
+    in
+        { model | points = newPoints }
 
 
 drawPoint : Point -> Svg msg
