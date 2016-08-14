@@ -1,6 +1,7 @@
 module Main exposing (..)
 
 import Html exposing (Html, div, text)
+import Html.Attributes exposing (..)
 import Html.App as App
 import Window exposing (..)
 import Mouse
@@ -9,6 +10,8 @@ import Char exposing (fromCode)
 import Task exposing (..)
 import Basics.Extra exposing (..)
 import Random exposing (..)
+import Svg.Attributes exposing (..)
+import Svg exposing (..)
 
 
 main : Program Never
@@ -49,7 +52,7 @@ init =
 
 randomPoint : Cmd Msg
 randomPoint =
-    Random.generate RandomPointMsg (Random.int 0 100)
+    Random.generate RandomPointMsg <| (Random.pair (Random.int 0 1000) (Random.int 0 1000))
 
 
 initialWindowSize : Cmd Msg
@@ -61,7 +64,7 @@ type Msg
     = KeyMsg Keyboard.KeyCode
     | MouseMsg Mouse.Position
     | WindMsg Window.Size
-    | RandomPointMsg Int
+    | RandomPointMsg ( Int, Int )
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -76,13 +79,13 @@ update msg model =
         WindMsg windowSize ->
             ( { model | windowSize = windowSize }, Cmd.none )
 
-        RandomPointMsg int ->
+        RandomPointMsg ( a, b ) ->
             case List.length model.points of
                 100 ->
-                    ( { model | points = List.append model.points [ { x = int, y = int } ] }, initialWindowSize )
+                    ( { model | points = List.append model.points [ { x = a, y = b } ] }, initialWindowSize )
 
                 _ ->
-                    ( { model | points = List.append model.points [ { x = int, y = int } ] }, randomPoint )
+                    ( { model | points = List.append model.points [ { x = a, y = b } ] }, randomPoint )
 
 
 subscriptions : Model -> Sub Msg
@@ -94,7 +97,20 @@ subscriptions model =
         ]
 
 
+drawPoint : Point -> Svg msg
+drawPoint point =
+    let
+        x =
+            toString point.x
+
+        y =
+            toString point.y
+    in
+        Svg.circle [ cx x, cy y, r "1" ] []
+
+
 view : Model -> Html Msg
 view model =
     div []
-        [ Html.text (toString model) ]
+        [ Svg.svg [ viewBox "0 0 500 500" ] (List.map drawPoint model.points)
+        ]
