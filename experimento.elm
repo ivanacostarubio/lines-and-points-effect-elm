@@ -44,7 +44,7 @@ initialModel =
 
 init : ( Model, Cmd Msg )
 init =
-    ( initialModel, initialWindowSize )
+    ( initialModel, randomPoint )
 
 
 randomPoint : Cmd Msg
@@ -77,7 +77,12 @@ update msg model =
             ( { model | windowSize = windowSize }, Cmd.none )
 
         RandomPointMsg int ->
-            ( { model | points = List.append model.points [ { x = int, y = int } ] }, Cmd.none )
+            case List.length model.points of
+                100 ->
+                    ( { model | points = List.append model.points [ { x = int, y = int } ] }, Cmd.none )
+
+                _ ->
+                    ( { model | points = List.append model.points [ { x = int, y = int } ] }, randomPoint )
 
 
 subscriptions : Model -> Sub Msg
