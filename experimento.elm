@@ -1,7 +1,6 @@
 module Main exposing (..)
 
 import Html exposing (Html, div, text)
-import Html.Attributes exposing (..)
 import Html.App as App
 import Window exposing (..)
 import Mouse
@@ -36,6 +35,10 @@ type alias Point =
     { x : Int, y : Int }
 
 
+elementColor =
+    "#313131"
+
+
 initialModel : Model
 initialModel =
     { windowSize = { height = 0, width = 0 }
@@ -47,23 +50,24 @@ initialModel =
 
 init : ( Model, Cmd Msg )
 init =
-    ( initialModel, randomPoint )
+    ( initialModel, initialWindowSize )
 
 
-randomPoint : Cmd Msg
-randomPoint =
-    Random.generate RandomPointMsg <| (Random.pair (Random.int 0 1000) (Random.int 0 1000))
+randomPoint : Model -> Cmd Msg
+randomPoint model =
+    Random.generate RandomPointMsg <| (Random.pair (Random.int 0 model.windowSize.width) (Random.int 0 model.windowSize.height))
 
 
 initialWindowSize : Cmd Msg
 initialWindowSize =
-    Task.perform never WindMsg Window.size
+    Task.perform never WindInitialMsg Window.size
 
 
 type Msg
     = KeyMsg Keyboard.KeyCode
     | MouseMsg Mouse.Position
     | WindMsg Window.Size
+    | WindInitialMsg Window.Size
     | RandomPointMsg ( Int, Int )
 
 
@@ -79,13 +83,16 @@ update msg model =
         WindMsg windowSize ->
             ( { model | windowSize = windowSize }, Cmd.none )
 
+        WindInitialMsg windowSize ->
+            ( { model | windowSize = windowSize }, randomPoint model )
+
         RandomPointMsg ( a, b ) ->
             case List.length model.points of
-                100 ->
-                    ( { model | points = List.append model.points [ { x = a, y = b } ] }, initialWindowSize )
+                500 ->
+                    ( { model | points = List.append model.points [ { x = a, y = b } ] }, Cmd.none )
 
                 _ ->
-                    ( { model | points = List.append model.points [ { x = a, y = b } ] }, randomPoint )
+                    ( { model | points = List.append model.points [ { x = a, y = b } ] }, randomPoint model )
 
 
 subscriptions : Model -> Sub Msg
@@ -106,11 +113,63 @@ drawPoint point =
         y =
             toString point.y
     in
-        Svg.circle [ cx x, cy y, r "1" ] []
+        Svg.circle [ cx x, cy y, r "1", fill elementColor ] []
+
+
+allPoints : Model -> List (Svg b)
+allPoints model =
+    List.map drawPoint model.points
+
+
+drawLine : Point -> Point -> Svg g
+drawLine point mouse =
+    let
+        p =
+            { x = toString point.x, y = toString point.y }
+
+        m =
+            { x = toString mouse.x, y = toString mouse.y }
+
+        distance =
+            sqrt (toFloat (point.x - mouse.x) ^ 2 + toFloat (point.y - mouse.y) ^ 2)
+
+        color =
+            if distance < 150.0 then
+                elementColor
+            else
+                "fff"
+
+        styles =
+            Svg.Attributes.style ("stroke-width:0.3 ;stroke:" ++ color)
+    in
+        Svg.line [ x1 p.x, y1 p.y, x2 m.x, y2 m.y, styles ] []
+
+
+allLines : Model -> List (Svg b)
+allLines model =
+    let
+        mouseList =
+            List.repeat (List.length model.points) model.mouse
+
+        points =
+            model.points
+    in
+        (List.map2 drawLine mouseList points)
 
 
 view : Model -> Html Msg
 view model =
-    div []
-        [ Svg.svg [ viewBox "0 0 500 500" ] (List.map drawPoint model.points)
-        ]
+    let
+        windowHeight =
+            toString model.windowSize.height
+
+        windowWidth =
+            toString model.windowSize.width
+
+        lines =
+            allLines model
+
+        points =
+            allPoints
+    in
+        Svg.svg [ viewBox ("0 0 " ++ windowWidth ++ " " ++ windowHeight) ] (List.append (allLines model) (allPoints model))
