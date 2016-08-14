@@ -79,7 +79,7 @@ update msg model =
         RandomPointMsg int ->
             case List.length model.points of
                 100 ->
-                    ( { model | points = List.append model.points [ { x = int, y = int } ] }, Cmd.none )
+                    ( { model | points = List.append model.points [ { x = int, y = int } ] }, initialWindowSize )
 
                 _ ->
                     ( { model | points = List.append model.points [ { x = int, y = int } ] }, randomPoint )
